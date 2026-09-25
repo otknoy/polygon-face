@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "polygonface",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon"
     },
@@ -25,6 +25,7 @@
     },
     "plugins": [
       "expo-router",
+      ["expo-camera", { "cameraPermission": "顔のポリゴンメッシュを表示するためにカメラを使用します。" }],
       [
         "expo-splash-screen",
         {
