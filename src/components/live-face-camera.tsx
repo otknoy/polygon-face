@@ -13,12 +13,15 @@ type Props = {
 const HTML = `<!DOCTYPE html>
 <html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
-html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #101310; }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #050711; }
+body { background-image: radial-gradient(circle at 50% 42%, #23203a 0%, #0d1022 48%, #050711 100%); }
+#space { position: absolute; inset: 0; background-image: radial-gradient(circle at 13% 18%, #ffffff99 0 1px, transparent 2px), radial-gradient(circle at 83% 11%, #ffffff77 0 1px, transparent 2px), radial-gradient(circle at 72% 69%, #ffffff88 0 1px, transparent 2px), radial-gradient(circle at 24% 78%, #ffffff77 0 1px, transparent 2px), radial-gradient(circle at 90% 43%, #ffffff55 0 1px, transparent 2px), radial-gradient(circle at 7% 52%, #ffffff66 0 1px, transparent 2px); }
+#space::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 3px, #00000018 4px); }
 video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-video { object-fit: cover; }
+video { object-fit: cover; opacity: 0; }
 canvas { pointer-events: none; }
 .mirror { transform: scaleX(-1); }
-</style></head><body>
+</style></head><body><div id="space"></div>
 <video id="camera" autoplay muted playsinline></video><canvas id="mesh"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/vision_bundle.js"></script>
 <script>
@@ -35,6 +38,7 @@ canvas { pointer-events: none; }
   var lastVideoTime = -1;
   var lastFaceAt = 0;
   var faceCount = -1;
+  var framing = null;
   var report = function (type, value) {
     window.ReactNativeWebView.postMessage(JSON.stringify({ type: type, value: value }));
   };
@@ -62,6 +66,7 @@ canvas { pointer-events: none; }
     var version = ++cameraVersion;
     stopCamera();
     clear();
+    framing = null;
     faceCount = -1;
     report('faces', 0);
     report('status', 'カメラを起動中');
@@ -98,55 +103,79 @@ canvas { pointer-events: none; }
     if (frozen) video.pause();
     else if (stream) video.play().catch(function (error) { report('error', '映像を再開できません: ' + String(error)); });
   };
+  var px = function (point, width) { return point.x * width; };
+  var py = function (point, height) { return point.y * height; };
+  var polygon = function (face, indices, width, height) {
+    context.beginPath();
+    indices.forEach(function (index, position) {
+      var point = face[index];
+      if (position === 0) context.moveTo(px(point, width), py(point, height));
+      else context.lineTo(px(point, width), py(point, height));
+    });
+    context.closePath();
+  };
   var drawEdges = function (face, edges, color, lineWidth, width, height) {
     context.beginPath();
     edges.forEach(function (edge) {
       var a = face[edge.start];
       var b = face[edge.end];
       if (!a || !b) return;
-      context.moveTo(a.x * width, a.y * height);
-      context.lineTo(b.x * width, b.y * height);
+      context.moveTo(px(a, width), py(a, height));
+      context.lineTo(px(b, width), py(b, height));
     });
     context.strokeStyle = color;
     context.lineWidth = lineWidth;
     context.stroke();
   };
+  var anchors = [
+    10, 297, 284, 389, 454, 361, 397, 379, 400, 152, 176, 150, 172, 132, 234, 162, 54, 67,
+    151, 9, 168, 6, 1, 4, 2, 50, 280, 205, 425, 116, 345, 33, 133, 362, 263,
+    70, 300, 61, 291, 0, 17, 78, 308, 123, 352, 187, 411
+  ];
+  var palette = ['#555066', '#686078', '#79647a', '#8d6c72', '#a47672', '#6e687b', '#9a7b75', '#b18676'];
+  var leftEye = [263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387, 388, 466];
+  var rightEye = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246];
+  var innerMouth = [78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 415, 310, 311, 312, 13, 82, 81, 80, 191];
+  var drawEye = function (face, indices, iris, width, height, scale) {
+    polygon(face, indices, width, height);
+    context.fillStyle = '#100d1d';
+    context.fill();
+    context.strokeStyle = '#ed7766';
+    context.lineWidth = 2.2 / scale;
+    context.stroke();
+    var irisPoints = iris.map(function (edge) { return face[edge.start]; }).filter(Boolean);
+    var centerX = irisPoints.length ? 0 : (px(face[indices[0]], width) + px(face[indices[8]], width)) / 2;
+    var centerY = irisPoints.length ? 0 : (py(face[indices[0]], height) + py(face[indices[8]], height)) / 2;
+    irisPoints.forEach(function (point) { centerX += px(point, width); centerY += py(point, height); });
+    if (irisPoints.length) { centerX /= irisPoints.length; centerY /= irisPoints.length; }
+    var eyeWidth = Math.abs(px(face[indices[0]], width) - px(face[indices[8]], width));
+    var radius = Math.max(eyeWidth * 0.18, 2 / scale);
+    context.beginPath();
+    context.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    context.fillStyle = '#f47b50';
+    context.fill();
+    context.beginPath();
+    context.arc(centerX, centerY, radius * 0.52, 0, Math.PI * 2);
+    context.fillStyle = '#fff0ae';
+    context.fill();
+  };
   var drawFace = function (face, width, height, scale) {
     var landmarker = Vision.FaceLandmarker;
-    var oval = landmarker.FACE_LANDMARKS_FACE_OVAL;
-    var outline = oval.filter(function (_, index) { return index % 3 === 0; })
-      .map(function (edge) { return edge.start; });
-    var xs = outline.map(function (index) { return face[index].x; });
-    var ys = outline.map(function (index) { return face[index].y; });
-    var minX = Math.min.apply(null, xs);
-    var maxX = Math.max.apply(null, xs);
-    var minY = Math.min.apply(null, ys);
-    var maxY = Math.max.apply(null, ys);
-    var anchors = outline.slice();
-    var seenAnchors = new Set(anchors);
-    for (var row = 0; row < 8; row++) {
-      for (var column = 0; column < 6; column++) {
-        var left = minX + (maxX - minX) * column / 6;
-        var right = minX + (maxX - minX) * (column + 1) / 6;
-        var top = minY + (maxY - minY) * row / 8;
-        var bottom = minY + (maxY - minY) * (row + 1) / 8;
-        var centerX = (left + right) / 2;
-        var centerY = (top + bottom) / 2;
-        var best = -1;
-        var distance = Infinity;
-        for (var index = 0; index < Math.min(face.length, 468); index++) {
-          var point = face[index];
-          if (point.x < left || point.x >= right || point.y < top || point.y >= bottom) continue;
-          var score = (point.x - centerX) ** 2 + (point.y - centerY) ** 2;
-          if (score < distance) { best = index; distance = score; }
-        }
-        if (best >= 0 && !seenAnchors.has(best)) {
-          anchors.push(best);
-          seenAnchors.add(best);
-        }
-      }
-    }
-    var nearest = face.map(function (point) {
+    var oval = landmarker.FACE_LANDMARKS_FACE_OVAL.map(function (edge) { return edge.start; });
+    polygon(face, oval, width, height);
+    context.fillStyle = '#312d45';
+    context.fill();
+    context.shadowColor = '#d44b53';
+    context.shadowBlur = 18 / scale;
+    context.strokeStyle = '#c76c66';
+    context.lineWidth = 3 / scale;
+    context.stroke();
+    context.shadowBlur = 0;
+
+    context.save();
+    polygon(face, oval, width, height);
+    context.clip();
+    var nearest = face.slice(0, 468).map(function (point) {
       var best = anchors[0];
       var distance = Infinity;
       anchors.forEach(function (index) {
@@ -156,37 +185,36 @@ canvas { pointer-events: none; }
       });
       return best;
     });
-    var usedEdges = new Set();
-    context.beginPath();
-    landmarker.FACE_LANDMARKS_TESSELATION.forEach(function (edge) {
-      var a = nearest[edge.start];
-      var b = nearest[edge.end];
-      if (a === b || a == null || b == null) return;
-      var key = Math.min(a, b) + ':' + Math.max(a, b);
-      if (usedEdges.has(key)) return;
-      usedEdges.add(key);
-      context.moveTo(face[a].x * width, face[a].y * height);
-      context.lineTo(face[b].x * width, face[b].y * height);
-    });
-    context.strokeStyle = 'rgba(204, 255, 101, .85)';
-    context.lineWidth = 1.25 / scale;
+    var used = new Set();
+    var triangles = landmarker.FACE_LANDMARKS_TESSELATION;
+    for (var index = 0; index < triangles.length; index += 3) {
+      var a = nearest[triangles[index].start];
+      var b = nearest[triangles[index].end];
+      var c = nearest[triangles[index + 1].end];
+      if (a === b || b === c || c === a || a == null || b == null || c == null) continue;
+      var key = [a, b, c].sort(function (x, y) { return x - y; }).join(':');
+      if (used.has(key)) continue;
+      used.add(key);
+      polygon(face, [a, b, c], width, height);
+      context.fillStyle = palette[(a * 3 + b * 7 + c * 11) % palette.length];
+      context.fill();
+      context.strokeStyle = 'rgba(22, 19, 38, .65)';
+      context.lineWidth = 1 / scale;
+      context.stroke();
+    }
+    context.restore();
+
+    drawEdges(face, landmarker.FACE_LANDMARKS_LEFT_EYEBROW, '#392b43', 5 / scale, width, height);
+    drawEdges(face, landmarker.FACE_LANDMARKS_RIGHT_EYEBROW, '#392b43', 5 / scale, width, height);
+    drawEye(face, leftEye, landmarker.FACE_LANDMARKS_LEFT_IRIS, width, height, scale);
+    drawEye(face, rightEye, landmarker.FACE_LANDMARKS_RIGHT_IRIS, width, height, scale);
+    polygon(face, innerMouth, width, height);
+    context.fillStyle = '#130b1d';
+    context.fill();
+    context.strokeStyle = '#d37a72';
+    context.lineWidth = 2 / scale;
     context.stroke();
-    context.beginPath();
-    var contour = oval.filter(function (_, index) { return index % 2 === 0; })
-      .map(function (edge) { return edge.start; });
-    contour.forEach(function (start, index) {
-      var end = contour[(index + 1) % contour.length];
-      context.moveTo(face[start].x * width, face[start].y * height);
-      context.lineTo(face[end].x * width, face[end].y * height);
-    });
-    context.strokeStyle = 'rgba(255, 255, 255, .96)';
-    context.lineWidth = 2.6 / scale;
-    context.stroke();
-    drawEdges(face, landmarker.FACE_LANDMARKS_LEFT_EYE, '#CCFF65', 2.5 / scale, width, height);
-    drawEdges(face, landmarker.FACE_LANDMARKS_RIGHT_EYE, '#CCFF65', 2.5 / scale, width, height);
-    drawEdges(face, landmarker.FACE_LANDMARKS_LEFT_IRIS, '#FFFFFF', 1.8 / scale, width, height);
-    drawEdges(face, landmarker.FACE_LANDMARKS_RIGHT_IRIS, '#FFFFFF', 1.8 / scale, width, height);
-    drawEdges(face, landmarker.FACE_LANDMARKS_LIPS, 'rgba(255, 255, 255, .8)', 1.4 / scale, width, height);
+    drawEdges(face, [{ start: 168, end: 6 }, { start: 6, end: 1 }, { start: 1, end: 4 }], '#d8a18a', 2.5 / scale, width, height);
   };
   var draw = function (faces) {
     resize();
@@ -194,17 +222,31 @@ canvas { pointer-events: none; }
     var width = video.videoWidth;
     var height = video.videoHeight;
     if (!width || !height) return;
+    var face = faces[0];
+    var oval = Vision.FaceLandmarker.FACE_LANDMARKS_FACE_OVAL;
+    var xs = oval.map(function (edge) { return px(face[edge.start], width); });
+    var ys = oval.map(function (edge) { return py(face[edge.start], height); });
+    var minX = Math.min.apply(null, xs);
+    var maxX = Math.max.apply(null, xs);
+    var minY = Math.min.apply(null, ys);
+    var maxY = Math.max.apply(null, ys);
     var cssWidth = canvas.clientWidth;
     var cssHeight = canvas.clientHeight;
     var ratio = canvas.width / cssWidth;
-    var scale = Math.max(cssWidth / width, cssHeight / height);
-    var offsetX = (cssWidth - width * scale) / 2;
-    var offsetY = (cssHeight - height * scale) / 2;
-    if (facing === 'front') {
-      context.setTransform(-ratio * scale, 0, 0, ratio * scale, ratio * (cssWidth - offsetX), ratio * offsetY);
-    } else {
-      context.setTransform(ratio * scale, 0, 0, ratio * scale, ratio * offsetX, ratio * offsetY);
+    var targetScale = Math.min(cssWidth * 0.78 / (maxX - minX), cssHeight * 0.78 / (maxY - minY));
+    var targetX = (minX + maxX) / 2;
+    var targetY = (minY + maxY) / 2;
+    if (!framing) framing = { scale: targetScale, x: targetX, y: targetY };
+    else {
+      framing.scale += (targetScale - framing.scale) * 0.22;
+      framing.x += (targetX - framing.x) * 0.22;
+      framing.y += (targetY - framing.y) * 0.22;
     }
+    var scale = framing.scale;
+    var centerX = framing.x;
+    var centerY = framing.y;
+    var horizontal = facing === 'front' ? -ratio * scale : ratio * scale;
+    context.setTransform(horizontal, 0, 0, ratio * scale, ratio * cssWidth / 2 - horizontal * centerX, ratio * cssHeight / 2 - ratio * scale * centerY);
     faces.forEach(function (face) { drawFace(face, width, height, scale); });
   };
   var tick = function (now) {
@@ -219,6 +261,7 @@ canvas { pointer-events: none; }
         draw(faces);
       } else if (now - lastFaceAt > 1500) {
         clear();
+        framing = null;
       }
       if (faces.length !== faceCount) {
         faceCount = faces.length;

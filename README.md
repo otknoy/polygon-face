@@ -1,6 +1,6 @@
 # Polygon Face
 
-Expo / React Native 製の顔メッシュカメラです。MediaPipe Face Landmarker が顔のランドマークを検出し、カメラ映像上にポリゴン状のワイヤーフレームを表示します。
+Expo / React Native 製の顔メッシュカメラです。MediaPipe Face Landmarker が顔のランドマークを検出し、Android では顔を暗い宇宙背景に浮かぶローポリゴンのボスとして表示します。iOS・Web ではカメラ映像にワイヤーフレームを重ねます。
 
 ## 起動
 
