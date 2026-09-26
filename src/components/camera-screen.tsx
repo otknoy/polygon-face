@@ -56,7 +56,7 @@ export default function CameraScreen() {
           <Pressable style={styles.shutter} accessibilityLabel={frozen ? '映像を再開' : '映像を一時停止'} onPress={() => setFrozen(value => !value)}><View style={[styles.shutterCore, frozen && styles.shutterStop]}><Text style={styles.shutterLetter}>A</Text></View></Pressable>
           <View style={styles.smallButton}><Text style={styles.count}>{faceCount}</Text><Text style={styles.buttonHint}>FACE</Text></View>
         </View>
-        <Text style={styles.footer}>A: PAUSE / RESUME      B: CAMERA</Text>
+        <Text style={styles.footer}>OPEN MOUTH: FIRE x5   A: PAUSE   B: FLIP</Text>
       </View>
     </SafeAreaView>
   );

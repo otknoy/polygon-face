@@ -22,28 +22,41 @@ video { object-fit: cover; opacity: 0; }
 canvas { pointer-events: none; }
 .mirror { transform: scaleX(-1); }
 </style></head><body><div id="space"></div>
-<video id="camera" autoplay muted playsinline></video><canvas id="mesh"></canvas>
+<video id="camera" autoplay muted playsinline></video><canvas id="mesh"></canvas><canvas id="effects"></canvas>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/vision_bundle.js"></script>
 <script>
 (function () {
   var video = document.getElementById('camera');
   var canvas = document.getElementById('mesh');
   var context = canvas.getContext('2d', { alpha: true });
+  var effects = document.getElementById('effects');
+  var effectContext = effects.getContext('2d', { alpha: true });
   var detector = null;
   var stream = null;
   var facing = 'front';
   var frozen = false;
+  var pausedAt = 0;
   var cameraVersion = 0;
   var lastInference = 0;
   var lastVideoTime = -1;
   var lastFaceAt = 0;
   var faceCount = -1;
+  var shots = [];
+  var mouthOpen = false;
+  var shotsFired = 0;
+  var lastShotAt = -Infinity;
+  var shotDuration = 2600;
+  var shotInterval = 450;
   var report = function (type, value) {
     window.ReactNativeWebView.postMessage(JSON.stringify({ type: type, value: value }));
   };
   var clear = function () {
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, canvas.width, canvas.height);
+  };
+  var clearEffects = function () {
+    effectContext.setTransform(1, 0, 0, 1, 0, 0);
+    effectContext.clearRect(0, 0, effects.width, effects.height);
   };
   var resize = function () {
     var ratio = Math.min(window.devicePixelRatio || 1, 2);
@@ -52,6 +65,12 @@ canvas { pointer-events: none; }
     if (width !== canvas.width || height !== canvas.height) {
       canvas.width = width;
       canvas.height = height;
+    }
+    var effectWidth = Math.round(effects.clientWidth);
+    var effectHeight = Math.round(effects.clientHeight);
+    if (effectWidth !== effects.width || effectHeight !== effects.height) {
+      effects.width = effectWidth;
+      effects.height = effectHeight;
     }
   };
   window.addEventListener('resize', resize);
@@ -65,6 +84,12 @@ canvas { pointer-events: none; }
     var version = ++cameraVersion;
     stopCamera();
     clear();
+    shots = [];
+    mouthOpen = false;
+    shotsFired = 0;
+    lastShotAt = -Infinity;
+    lastFaceAt = 0;
+    clearEffects();
     faceCount = -1;
     report('faces', 0);
     report('status', 'カメラを起動中');
@@ -97,9 +122,19 @@ canvas { pointer-events: none; }
     }
   };
   window.setFrozen = function (value) {
-    frozen = !!value;
-    if (frozen) video.pause();
-    else if (stream) video.play().catch(function (error) { report('error', '映像を再開できません: ' + String(error)); });
+    var next = !!value;
+    if (next === frozen) return;
+    if (next) {
+      frozen = true;
+      pausedAt = performance.now();
+      video.pause();
+    } else {
+      var pausedFor = performance.now() - pausedAt;
+      shots.forEach(function (shot) { shot.startedAt += pausedFor; });
+      if (lastShotAt > -Infinity) lastShotAt += pausedFor;
+      frozen = false;
+      if (stream) video.play().catch(function (error) { report('error', '映像を再開できません: ' + String(error)); });
+    }
   };
   var px = function (point, width) { return point.x * width; };
   var py = function (point, height) { return point.y * height; };
@@ -216,8 +251,119 @@ canvas { pointer-events: none; }
     }
     faces.forEach(function (face) { drawFace(face, width, height, scale); });
   };
+  var projectPoint = function (point) {
+    var width = video.videoWidth;
+    var height = video.videoHeight;
+    var viewWidth = effects.clientWidth;
+    var viewHeight = effects.clientHeight;
+    if (!width || !height || !viewWidth || !viewHeight) return null;
+    var scale = Math.max(viewWidth / width, viewHeight / height);
+    var x = (viewWidth - width * scale) / 2 + point.x * width * scale;
+    return {
+      x: facing === 'front' ? viewWidth - x : x,
+      y: (viewHeight - height * scale) / 2 + point.y * height * scale
+    };
+  };
+  var updateMouth = function (face, now) {
+    var upper = face[13];
+    var lower = face[14];
+    var left = face[61];
+    var right = face[291];
+    if (!upper || !lower || !left || !right) return;
+    var width = video.videoWidth;
+    var height = video.videoHeight;
+    var mouthWidth = Math.hypot((left.x - right.x) * width, (left.y - right.y) * height);
+    var mouthGap = Math.hypot((upper.x - lower.x) * width, (upper.y - lower.y) * height);
+    var openness = mouthGap / Math.max(mouthWidth, 1);
+    if (openness < 0.1) {
+      mouthOpen = false;
+      shotsFired = 0;
+      lastShotAt = -Infinity;
+      return;
+    }
+    if (openness > 0.18) mouthOpen = true;
+    if (!mouthOpen || shotsFired >= 5 || shots.length >= 5 || now - lastShotAt < shotInterval) return;
+    var origin = projectPoint({ x: (upper.x + lower.x) / 2, y: (upper.y + lower.y) / 2 });
+    if (!origin) return;
+    var lane = [0, -1, 1, -2, 2][shotsFired];
+    shots.push({ x: origin.x + lane * 3, y: origin.y, lane: lane, startedAt: now });
+    shotsFired++;
+    lastShotAt = now;
+  };
+  var drawShot = function (shot, progress, viewWidth, viewHeight) {
+    var size = 18 + 200 * progress * progress;
+    var turn = progress * Math.PI * 2;
+    var half = size / 2;
+    var halfDepth = Math.max(0.5, size * 0.025);
+    var cosine = Math.cos(turn);
+    var sine = Math.sin(turn);
+    var cameraDistance = size * 3.2;
+    var project = function (localX, localY, localZ) {
+      var rotatedY = localY * cosine - localZ * sine;
+      var rotatedZ = localY * sine + localZ * cosine;
+      var perspective = cameraDistance / (cameraDistance - rotatedZ);
+      return { x: localX * perspective, y: rotatedY * perspective };
+    };
+    var drawQuad = function (points, color) {
+      effectContext.beginPath();
+      points.forEach(function (point, index) {
+        if (index === 0) effectContext.moveTo(point.x, point.y);
+        else effectContext.lineTo(point.x, point.y);
+      });
+      effectContext.closePath();
+      effectContext.fillStyle = color;
+      effectContext.fill();
+    };
+    var x = shot.x + (shot.x - viewWidth / 2) * progress * 0.35 + shot.lane * progress * 18;
+    var y = shot.y + (shot.y - viewHeight / 2) * progress * 0.35;
+    effectContext.save();
+    effectContext.translate(x, y);
+    effectContext.globalAlpha = progress < 0.85 ? 1 : Math.max(0, (1 - progress) / 0.15);
+    var sideY = sine >= 0 ? half : -half;
+    drawQuad([
+      project(-half, sideY, halfDepth), project(half, sideY, halfDepth),
+      project(half, sideY, -halfDepth), project(-half, sideY, -halfDepth)
+    ], sine >= 0 ? '#D83542' : '#8E1E30');
+    if (Math.abs(cosine) > 0.03) {
+      var faceZ = cosine > 0 ? halfDepth : -halfDepth;
+      var face = [
+        project(-half, -half, faceZ), project(half, -half, faceZ),
+        project(half, half, faceZ), project(-half, half, faceZ)
+      ];
+      drawQuad(face, cosine > 0 ? '#FFFDF4' : '#E2E2DF');
+      effectContext.beginPath();
+      face.forEach(function (point, index) {
+        if (index === 0) effectContext.moveTo(point.x, point.y);
+        else effectContext.lineTo(point.x, point.y);
+      });
+      effectContext.closePath();
+      effectContext.strokeStyle = '#B8B9BD';
+      effectContext.lineWidth = Math.max(1, size * 0.008);
+      effectContext.stroke();
+      var markerStart = project(-half * 0.65, -half * 0.64, faceZ);
+      var markerEnd = project(half * 0.65, -half * 0.64, faceZ);
+      effectContext.beginPath();
+      effectContext.moveTo(markerStart.x, markerStart.y);
+      effectContext.lineTo(markerEnd.x, markerEnd.y);
+      effectContext.strokeStyle = '#C93A47';
+      effectContext.lineWidth = Math.max(2, size * 0.03);
+      effectContext.stroke();
+    }
+    effectContext.restore();
+  };
+  var drawEffects = function (now) {
+    if (!shots.length) return;
+    clearEffects();
+    var viewWidth = effects.clientWidth;
+    var viewHeight = effects.clientHeight;
+    if (!viewWidth || !viewHeight) return;
+    effectContext.setTransform(effects.width / viewWidth, 0, 0, effects.height / viewHeight, 0, 0);
+    shots = shots.filter(function (shot) { return now - shot.startedAt < shotDuration; });
+    shots.slice().reverse().forEach(function (shot) { drawShot(shot, Math.max(0, (now - shot.startedAt) / shotDuration), viewWidth, viewHeight); });
+  };
   var tick = function (now) {
     requestAnimationFrame(tick);
+    if (!frozen) drawEffects(now);
     if (frozen || !detector || video.readyState < 2 || now - lastInference < 66 || video.currentTime === lastVideoTime) return;
     lastInference = now;
     lastVideoTime = video.currentTime;
@@ -226,8 +372,12 @@ canvas { pointer-events: none; }
       if (faces.length) {
         lastFaceAt = now;
         draw(faces);
+        updateMouth(faces[0], now);
       } else if (now - lastFaceAt > 250) {
         clear();
+        mouthOpen = false;
+        shotsFired = 0;
+        lastShotAt = -Infinity;
       }
       if (faces.length !== faceCount) {
         faceCount = faces.length;
