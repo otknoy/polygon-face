@@ -141,7 +141,7 @@ export default function CameraScreen() {
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
       <View style={styles.top}>
-        <View><Text style={styles.eyebrow}>LIVE FACE MESH</Text><Text style={styles.title}>POLYGON<Text style={styles.titleAccent}> / FACE</Text></Text></View>
+        <View><Text style={styles.eyebrow}>LIVE FACE MESH</Text><Text style={styles.title}>POLYGON<Text style={styles.titleAccent}> FACE</Text></Text></View>
         <View style={styles.pill}><View style={styles.dot} /><Text style={styles.pillText}>{photo ? 'STILL' : 'LIVE'}</Text></View>
       </View>
       <View style={styles.preview}>

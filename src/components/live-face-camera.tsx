@@ -13,10 +13,10 @@ type Props = {
 const HTML = `<!DOCTYPE html>
 <html><head><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <style>
-html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #050711; }
-body { background-image: radial-gradient(circle at 50% 42%, #23203a 0%, #0d1022 48%, #050711 100%); }
-#space { position: absolute; inset: 0; background-image: radial-gradient(circle at 13% 18%, #ffffff99 0 1px, transparent 2px), radial-gradient(circle at 83% 11%, #ffffff77 0 1px, transparent 2px), radial-gradient(circle at 72% 69%, #ffffff88 0 1px, transparent 2px), radial-gradient(circle at 24% 78%, #ffffff77 0 1px, transparent 2px), radial-gradient(circle at 90% 43%, #ffffff55 0 1px, transparent 2px), radial-gradient(circle at 7% 52%, #ffffff66 0 1px, transparent 2px); }
-#space::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 3px, #00000018 4px); }
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+#space { position: absolute; inset: 0; background: #000; }
+#space::before { content: ''; position: absolute; top: 17%; left: 12%; width: 3px; height: 3px; background: #fff2c5; box-shadow: 216px 23px #a9bce6, 62px 118px #fff2c5, 278px 151px #fff, 16px 258px #a9bce6, 242px 328px #fff2c5, 95px 405px #a9bce6, 318px 450px #fff, 40px 36px #6c7da8, 138px 187px #fff, 191px 292px #6c7da8, 301px 374px #fff2c5; }
+#space::after { content: ''; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 3px, #080e201c 3px 4px); }
 video, canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 video { object-fit: cover; opacity: 0; }
 canvas { pointer-events: none; }
@@ -38,7 +38,6 @@ canvas { pointer-events: none; }
   var lastVideoTime = -1;
   var lastFaceAt = 0;
   var faceCount = -1;
-  var framing = null;
   var report = function (type, value) {
     window.ReactNativeWebView.postMessage(JSON.stringify({ type: type, value: value }));
   };
@@ -66,7 +65,6 @@ canvas { pointer-events: none; }
     var version = ++cameraVersion;
     stopCamera();
     clear();
-    framing = null;
     faceCount = -1;
     report('faces', 0);
     report('status', 'カメラを起動中');
@@ -204,8 +202,6 @@ canvas { pointer-events: none; }
     }
     context.restore();
 
-    drawEdges(face, landmarker.FACE_LANDMARKS_LEFT_EYEBROW, '#392b43', 5 / scale, width, height);
-    drawEdges(face, landmarker.FACE_LANDMARKS_RIGHT_EYEBROW, '#392b43', 5 / scale, width, height);
     drawEye(face, leftEye, landmarker.FACE_LANDMARKS_LEFT_IRIS, width, height, scale);
     drawEye(face, rightEye, landmarker.FACE_LANDMARKS_RIGHT_IRIS, width, height, scale);
     polygon(face, innerMouth, width, height);
@@ -222,31 +218,17 @@ canvas { pointer-events: none; }
     var width = video.videoWidth;
     var height = video.videoHeight;
     if (!width || !height) return;
-    var face = faces[0];
-    var oval = Vision.FaceLandmarker.FACE_LANDMARKS_FACE_OVAL;
-    var xs = oval.map(function (edge) { return px(face[edge.start], width); });
-    var ys = oval.map(function (edge) { return py(face[edge.start], height); });
-    var minX = Math.min.apply(null, xs);
-    var maxX = Math.max.apply(null, xs);
-    var minY = Math.min.apply(null, ys);
-    var maxY = Math.max.apply(null, ys);
     var cssWidth = canvas.clientWidth;
     var cssHeight = canvas.clientHeight;
     var ratio = canvas.width / cssWidth;
-    var targetScale = Math.min(cssWidth * 0.78 / (maxX - minX), cssHeight * 0.78 / (maxY - minY));
-    var targetX = (minX + maxX) / 2;
-    var targetY = (minY + maxY) / 2;
-    if (!framing) framing = { scale: targetScale, x: targetX, y: targetY };
-    else {
-      framing.scale += (targetScale - framing.scale) * 0.22;
-      framing.x += (targetX - framing.x) * 0.22;
-      framing.y += (targetY - framing.y) * 0.22;
+    var scale = Math.max(cssWidth / width, cssHeight / height);
+    var offsetX = (cssWidth - width * scale) / 2;
+    var offsetY = (cssHeight - height * scale) / 2;
+    if (facing === 'front') {
+      context.setTransform(-ratio * scale, 0, 0, ratio * scale, ratio * (cssWidth - offsetX), ratio * offsetY);
+    } else {
+      context.setTransform(ratio * scale, 0, 0, ratio * scale, ratio * offsetX, ratio * offsetY);
     }
-    var scale = framing.scale;
-    var centerX = framing.x;
-    var centerY = framing.y;
-    var horizontal = facing === 'front' ? -ratio * scale : ratio * scale;
-    context.setTransform(horizontal, 0, 0, ratio * scale, ratio * cssWidth / 2 - horizontal * centerX, ratio * cssHeight / 2 - ratio * scale * centerY);
     faces.forEach(function (face) { drawFace(face, width, height, scale); });
   };
   var tick = function (now) {
@@ -259,9 +241,8 @@ canvas { pointer-events: none; }
       if (faces.length) {
         lastFaceAt = now;
         draw(faces);
-      } else if (now - lastFaceAt > 1500) {
+      } else if (now - lastFaceAt > 250) {
         clear();
-        framing = null;
       }
       if (faces.length !== faceCount) {
         faceCount = faces.length;
@@ -336,4 +317,4 @@ export default function LiveFaceCamera({ facing, frozen, onStatus, onFaceCount }
   );
 }
 
-const styles = StyleSheet.create({ webview: { flex: 1, backgroundColor: '#101310' } });
+const styles = StyleSheet.create({ webview: { flex: 1, backgroundColor: '#000' } });
