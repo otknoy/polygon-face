@@ -134,28 +134,13 @@ canvas { pointer-events: none; }
   var leftEye = [263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387, 388, 466];
   var rightEye = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246];
   var innerMouth = [78, 95, 88, 178, 87, 14, 317, 402, 318, 324, 308, 415, 310, 311, 312, 13, 82, 81, 80, 191];
-  var drawEye = function (face, indices, iris, width, height, scale) {
+  var drawEye = function (face, indices, width, height, scale) {
     polygon(face, indices, width, height);
-    context.fillStyle = '#100d1d';
+    context.fillStyle = '#F02938';
     context.fill();
-    context.strokeStyle = '#ed7766';
+    context.strokeStyle = '#5D1228';
     context.lineWidth = 2.2 / scale;
     context.stroke();
-    var irisPoints = iris.map(function (edge) { return face[edge.start]; }).filter(Boolean);
-    var centerX = irisPoints.length ? 0 : (px(face[indices[0]], width) + px(face[indices[8]], width)) / 2;
-    var centerY = irisPoints.length ? 0 : (py(face[indices[0]], height) + py(face[indices[8]], height)) / 2;
-    irisPoints.forEach(function (point) { centerX += px(point, width); centerY += py(point, height); });
-    if (irisPoints.length) { centerX /= irisPoints.length; centerY /= irisPoints.length; }
-    var eyeWidth = Math.abs(px(face[indices[0]], width) - px(face[indices[8]], width));
-    var radius = Math.max(eyeWidth * 0.18, 2 / scale);
-    context.beginPath();
-    context.arc(centerX, centerY, radius, 0, Math.PI * 2);
-    context.fillStyle = '#f47b50';
-    context.fill();
-    context.beginPath();
-    context.arc(centerX, centerY, radius * 0.52, 0, Math.PI * 2);
-    context.fillStyle = '#fff0ae';
-    context.fill();
   };
   var drawFace = function (face, width, height, scale) {
     var landmarker = Vision.FaceLandmarker;
@@ -202,8 +187,8 @@ canvas { pointer-events: none; }
     }
     context.restore();
 
-    drawEye(face, leftEye, landmarker.FACE_LANDMARKS_LEFT_IRIS, width, height, scale);
-    drawEye(face, rightEye, landmarker.FACE_LANDMARKS_RIGHT_IRIS, width, height, scale);
+    drawEye(face, leftEye, width, height, scale);
+    drawEye(face, rightEye, width, height, scale);
     polygon(face, innerMouth, width, height);
     context.fillStyle = '#130b1d';
     context.fill();
