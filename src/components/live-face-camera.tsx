@@ -340,14 +340,6 @@ canvas { pointer-events: none; }
       effectContext.strokeStyle = '#B8B9BD';
       effectContext.lineWidth = Math.max(1, size * 0.008);
       effectContext.stroke();
-      var markerStart = project(-half * 0.65, -half * 0.64, faceZ);
-      var markerEnd = project(half * 0.65, -half * 0.64, faceZ);
-      effectContext.beginPath();
-      effectContext.moveTo(markerStart.x, markerStart.y);
-      effectContext.lineTo(markerEnd.x, markerEnd.y);
-      effectContext.strokeStyle = '#C93A47';
-      effectContext.lineWidth = Math.max(2, size * 0.03);
-      effectContext.stroke();
     }
     effectContext.restore();
   };
