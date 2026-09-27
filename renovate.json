@@ -13,6 +13,9 @@
         "react-dom",
         "react-native",
         "react-native-*",
+        "@types/react",
+        "typescript",
+        "eslint",
         "eslint-config-expo",
         "jest-expo"
       ],
