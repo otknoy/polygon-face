@@ -6,14 +6,18 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "expo",
         "expo-*",
         "@expo/*",
         "react",
         "react-dom",
         "react-native",
         "react-native-*",
+        "@types/react",
+        "@types/jest",
+        "typescript",
+        "eslint",
         "eslint-config-expo",
+        "jest",
         "jest-expo"
       ],
       "enabled": false
