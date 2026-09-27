@@ -6,7 +6,6 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "expo",
         "expo-*",
         "@expo/*",
         "react",
