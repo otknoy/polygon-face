@@ -286,7 +286,8 @@ canvas { pointer-events: none; }
     var origin = projectPoint({ x: (upper.x + lower.x) / 2, y: (upper.y + lower.y) / 2 });
     if (!origin) return;
     var lane = [0, -1, 1, -2, 2][shotsFired];
-    shots.push({ x: origin.x + lane * 3, y: origin.y, lane: lane, startedAt: now });
+    var tilt = (Math.random() * 24 - 12) * Math.PI / 180;
+    shots.push({ x: origin.x + lane * 3, y: origin.y, lane: lane, tilt: tilt, startedAt: now });
     shotsFired++;
     lastShotAt = now;
   };
@@ -318,6 +319,7 @@ canvas { pointer-events: none; }
     var y = shot.y + (shot.y - viewHeight / 2) * progress * 0.35;
     effectContext.save();
     effectContext.translate(x, y);
+    effectContext.rotate(shot.tilt);
     effectContext.globalAlpha = progress < 0.85 ? 1 : Math.max(0, (1 - progress) / 0.15);
     var sideY = sine >= 0 ? half : -half;
     drawQuad([
@@ -339,14 +341,6 @@ canvas { pointer-events: none; }
       effectContext.closePath();
       effectContext.strokeStyle = '#B8B9BD';
       effectContext.lineWidth = Math.max(1, size * 0.008);
-      effectContext.stroke();
-      var markerStart = project(-half * 0.65, -half * 0.64, faceZ);
-      var markerEnd = project(half * 0.65, -half * 0.64, faceZ);
-      effectContext.beginPath();
-      effectContext.moveTo(markerStart.x, markerStart.y);
-      effectContext.lineTo(markerEnd.x, markerEnd.y);
-      effectContext.strokeStyle = '#C93A47';
-      effectContext.lineWidth = Math.max(2, size * 0.03);
       effectContext.stroke();
     }
     effectContext.restore();
