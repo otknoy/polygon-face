@@ -9,11 +9,10 @@ Polygon Face は Expo SDK 57 / React Native / Expo Router 製の顔メッシュ�
 ```text
 package.json (main: expo-router/entry)
 └─ src/app/_layout.tsx       StatusBar + ヘッダー非表示の Stack
-   ├─ src/app/index.tsx      ホーム。CameraScreen を表示
-   └─ src/app/explore.tsx    Expo のサンプル説明画面
+   └─ src/app/index.tsx      ホーム。CameraScreen を表示
 ```
 
-Expo Router のルートは `src/app/` に置き、画面以外のコードは `src/components/`、`src/hooks/`、`src/constants/` に置いています。`src/app/index.tsx` は `@/components/camera-screen` を読み込みます。プラットフォーム拡張子によって実体が切り替わります。
+Expo Router のルートは `src/app/` に置き、画面以外のコードは `src/components/` に置いています。現在の画面はホームのみです。`src/app/index.tsx` は `@/components/camera-screen` を読み込み、プラットフォーム拡張子によって実体が切り替わります。
 
 | 対象 | 選択される画面 | 顔の処理と表示 |
 | --- | --- | --- |
@@ -21,7 +20,7 @@ Expo Router のルートは `src/app/` に置き、画面以外のコードは `
 | iOS | `camera-screen.ios.tsx` → `camera-screen.still.tsx` | `CameraView` の画像を定期的に解析し、カメラ映像の上に SVG のワイヤーフレームを表示 |
 | Web | `camera-screen.web.tsx` → `camera-screen.still.tsx` | iOS と同じ画面を使い、ブラウザ用の `face-processor.web.tsx` で解析 |
 
-`src/app/_layout.tsx` は Stack を使用しています。`src/components/app-tabs.tsx` と `app-tabs.web.tsx` は存在しますが、現時点ではルートレイアウトから参照されていません。`explore.tsx` は Expo テンプレート由来の内容であり、顔解析の画面ではありません。
+`src/app/_layout.tsx` は Stack を使用しています。
 
 ## 顔解析の流れ
 
@@ -46,10 +45,9 @@ iOS の `face-processor.tsx` は非表示の WebView 内で解析し、`injectJa
 
 | パス | 役割 |
 | --- | --- |
-| `src/components/` | カメラ画面、顔解析、描画、共通 UI。`.ios.tsx` / `.web.tsx` がプラットフォーム別実装 |
-| `src/constants/theme.ts`、`src/hooks/`、`src/global.css` | 主に Explore 画面の色・フォント・テーマ。ホーム画面のスタイルは各画面内に定義 |
+| `src/components/` | カメラ画面、顔解析、描画。`.ios.tsx` / `.web.tsx` がプラットフォーム別実装 |
 | `public/mediapipe/` | Web 版が優先して使う MediaPipe の JS、WASM、顔モデル。Web の静的出力にもコピーされる |
-| `assets/` | アプリアイコン、スプラッシュ、画面用画像 |
+| `assets/` | アプリアイコン、スプラッシュ、Web favicon |
 | `app.json` | アプリ名、カメラ権限文言、プラグイン、Web の `static` 出力など |
 | `tsconfig.json` | strict TypeScript と `@/` → `src/` のパス別名 |
 | `__tests__/camera-screen-test.tsx` | Android の権限・停止・カメラ切替 UI のテスト |
