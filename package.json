@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "dependencies": {
     "@mediapipe/tasks-vision": "^1.0.1",
-    "expo": "~57.0.27",
+    "expo": "~58.0.0",
     "expo-camera": "~57.0.6",
     "expo-constants": "~57.0.21",
     "expo-image-manipulator": "~57.0.21",
