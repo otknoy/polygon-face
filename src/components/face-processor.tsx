@@ -181,7 +181,8 @@ const HTML = `<!DOCTYPE html>
 </script></body></html>`;
 
 export default function FaceProcessor({ image, onReady, onResult, onError }: Props) {
-  const webview = useRef<WebView>(null);
+  // WebView 14 の既定の型引数 undefined では props が never になるため明示する。
+  const webview = useRef<WebView<object>>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -206,7 +207,7 @@ export default function FaceProcessor({ image, onReady, onResult, onError }: Pro
   };
 
   return (
-    <WebView
+    <WebView<object>
       ref={webview}
       source={{ html: HTML, baseUrl: 'https://localhost/' }}
       originWhitelist={['*']}
