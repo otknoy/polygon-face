@@ -60,3 +60,5 @@ Android・iOS の MediaPipe JS / WASM / モデルはコード中の CDN と公�
 `package-lock.json` を使う npm プロジェクトです。`npm ci` 後に `npx expo start` で開発サーバーを起動し、`npm run web` で Web を開けます。Web の静的ビルドは `npx expo export --platform web` で、出力先は `dist/` です。`ios/` と `android/` はリポジトリに含まれず、Expo の生成対象です。
 
 確認コマンドは `npx expo lint`、`npx tsc --noEmit`、`npm test -- --ci` です。CI はこれらに加えて `npx expo install --check` を実行します。
+
+Expo Router が使う Reanimated と Worklets は、間接依存の更新によるバージョン競合を防ぐため、SDK 57 の推奨バージョンを `package.json` に明示しています。SDK 更新時は `npx expo install --fix` でこれらも揃えます。
