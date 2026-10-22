@@ -2,7 +2,7 @@
 
 ## 概要
 
-Polygon Face は Expo SDK 57 / React Native / Expo Router 製の顔メッシュカメラです。ホーム画面でカメラ画像を MediaPipe Face Landmarker に渡し、検出したランドマークをプラットフォーム別の表現で描画します。解析は端末またはブラウザ内で行い、画像を保存・送信するアプリ内の処理や独自のバックエンドはありません。ただし、Android と iOS は MediaPipe の実行ファイルとモデルを起動時に外部配布元から取得します。
+Polygon Face は Expo SDK 58 / React Native / Expo Router 製の顔メッシュカメラです。ホーム画面でカメラ画像を MediaPipe Face Landmarker に渡し、検出したランドマークをプラットフォーム別の表現で描画します。解析は端末またはブラウザ内で行い、画像を保存・送信するアプリ内の処理や独自のバックエンドはありません。ただし、Android と iOS は MediaPipe の実行ファイルとモデルを起動時に外部配布元から取得します。
 
 ## 入口と画面
 
@@ -57,6 +57,10 @@ Android・iOS の MediaPipe JS / WASM / モデルはコード中の CDN と公�
 
 ## 開発とビルド
 
+SDK 58 は React Native 0.88 / React 19.3 を使用します。Node.js は 22.13 以上の 22 系、24.3 以上の 24 系、または 26 以上が必要です。SDK 更新前の開発ビルドは作り直してください。
+
 `package-lock.json` を使う npm プロジェクトです。`npm ci` 後に `npx expo start` で開発サーバーを起動し、`npm run web` で Web を開けます。Web の静的ビルドは `npx expo export --platform web` で、出力先は `dist/` です。`ios/` と `android/` はリポジトリに含まれず、Expo の生成対象です。
 
 確認コマンドは `npx expo lint`、`npx tsc --noEmit`、`npm test -- --ci` です。CI はこれらに加えて `npx expo install --check` を実行します。
+
+Expo Router が使う Reanimated と Worklets は、間接依存の更新によるバージョン競合を防ぐため、SDK 58 の推奨バージョンを `package.json` に明示しています。SDK 更新時は `npx expo install --fix` でこれらも揃えます。
