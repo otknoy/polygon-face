@@ -22,6 +22,8 @@ Expo Router のルートは `src/app/` に置き、画面以外のコードは `
 
 `src/app/_layout.tsx` は Stack を使用しています。
 
+`app.json` には `expo-status-bar` の config plugin を登録しています。Expo SDK 58 の関連パッケージ更新時に CLI が追加した設定で、ネイティブビルド時のステータスバー設定に使います。
+
 ## 顔解析の流れ
 
 ### Android
